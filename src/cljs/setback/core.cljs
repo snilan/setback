@@ -2,14 +2,14 @@
   (:refer-clojure :exclude [val])
   (:use 
     [cljs.reader :only [read-string]]
-    [jayq.core :only [$ bind inner val]])
+    [jayq.core :only [$ bind inner val]]
+    [setback.shared.cards :only [Card]]
+    [setback.shared.events :only [react-to trigger make-event]])
   (:require 
     [goog.events :as events]
+    [setback.animations :as anim]
     [clojure.browser.repl :as repl]))
 
-;; set up the REPL
-
-;; (repl/connect "http://localhost:9000/repl")
 
 (def socket (new js/window.WebSocket "ws://localhost:8080"))
 
@@ -19,11 +19,6 @@
 (def msgbox ($ :#message_box))
 (def game ($ :#joingame))
 (def namebox ($ :#name))
-
-
-(defn make-event [etype data]
-  {:type etype
-   :data data})
 
 (bind ($ :#joinbutton) :click
       (fn [e]
@@ -38,35 +33,43 @@
 
 (bind ($ :#check_state) :click
       (fn [e]
-        (.send socket (pr-str (make-event :game-state :garbage)))))
+        (.send socket (pr-str (make-event :game-state nil)))))
+
+(bind ($ :#leave) :click
+      (fn [e]
+        (.send socket (pr-str (make-event :leave nil)))))
 
 (defn read-msg [msg]
   (js/alert (.-data msg))
   (read-string (.-data msg)))
 
-(defn add-player [data]
-  data)
+(defn update-table [msg]
+  (js/alert (pr-str msg))
+  (inner msgbox (pr-str msg))
+  (let [event (:event msg)
+        data (:data msg)]
+    (trigger event data)))
 
-(defn remove-player [data]
-  data)
 
-(defn make-move [data]
-  data)
+(react-to 
+  :error
+  (fn [data]
+    (inner msgbox data)))
 
-(defn hand-over [data]
-  data)
+(react-to 
+  :bet
+  (fn [data]
+    (if-let [{:keys [pid amount]} data]
+      (inner msgbox (str pid " bet " amount)))))
 
-(defn new-hand [data]
-  data)
- 
-(defn update-table [data]
-  (inner msgbox (pr-str data)))
+(react-to
+  :new-hand
+  (fn [data]
+    (if-let [cards (:cards data)]
+      (anim/draw-hand cards))))
 
-(set! (.-onmessage socket) #(-> % read-msg update-table))
+;;(repl/connect "http://localhost:9000/repl")
 
-(set! (.-onclose socket) (fn [] 
-                           (js/alert "socket closed")))
-
-(defn listen [element event callback]
-  (events/listen element (name event) callback))
+(set! (.-onmessage socket) #(-> % read-msg))
+(set! (.-onclose socket) (fn [] nil))
 

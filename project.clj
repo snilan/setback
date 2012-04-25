@@ -10,13 +10,16 @@
   :source-path "src/clj"
   :extra-classpath-dirs ["src/cljs"]
   :plugins [[lein-cljsbuild "0.1.8"]]
-  :cljsbuild {:crossovers [setback.crossover]
+  :cljsbuild {:crossovers [setback.shared]
               :crossover-path "src/cljs/"
               :crossover-jar false
               :builds
               [{:source-path "src/cljs"
-                :compiler {:output-to "resources/public/js/app.js"
+                :compiler {:output-to "resources/public/js/client.js"
+                           :optimizations :simple
                            :pretty-print true
-                           :optimizations :simple}}]}
+                           }}]}
   :ring {:handler setback.core/app}
   :main setback.core)
+
+

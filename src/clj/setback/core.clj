@@ -2,71 +2,75 @@
   (:use lamina.core
         aleph.http
         setback.engine
+        setback.shared.events
         (ring.middleware resource file-info)
         (hiccup core page))
   (:require [cljs.repl :as repl]
             [cljs.repl.browser :as browser]))
 
-(def receiver (channel))
 
-(def event-types
-  #{
-    :join
-    :make-move
-    :leave})
-
-(defn make-event [etype data]
-  {:type etype
-   :data data})
-
-(defn process-event [pid event]
-  (let [event-type (:type event)
-        player (get @players pid)
+(defn process-message [pid msg]
+  (let [event (:event msg)
+        player (get @player-info pid)
         game (get @games (:game-id player))]
-    (when (map? event)
-      (case event-type
-        :make-move (make-move game pid (:data event))
-        :name-change (change-name pid (:data event))
+    (when (map? msg)
+      (case event
+        :make-move (make-move game pid (:data msg))
+        :name-change (change-name pid (:data msg))
         :game-state (do (println "game: " game) game)
-        nil))))
+        :bet nil
+        (make-event :error :unknown-event)))))
 
-(defn join-game [channel pid game-id]
-  (if (= num-players (num-players? game-id))
-    (enqueue channel (str (make-event :error "Room is already full")))
-    (let [game-channel (named-channel game-id)]
+(defn record-receive [msg]
+  (do
+    (println "Sent by " (:src msg) ":" msg)
+    msg))
+
+(defn record-send [msg pid]
+  (do
+    (println "Sent to " pid ":" msg)
+    msg))
+
+(defn join-game [ch pid game-id]
+  (if (game-is-full? game-id)
+    (enqueue ch (str (make-event :error "Room is already full")))
+    (let [game-ch (named-channel game-id (partial make-new-game game-id))] ;; calls make-new-game if channel doesn't exist
       (siphon
-        (map* str 
-              (filter* identity
-                       (map* (partial process-event pid)
-                             (map* read-string channel))))
-        game-channel)
-      (siphon game-channel channel) 
-      (if-not (get @games game-id)
-        (swap! games assoc game-id (new-game)))
-      (swap! players assoc-in [pid :game-id] game-id) 
-      (swap! games update-in [game-id :players] conj (get @players pid)) 
-      (if (= (num-players? game-id) num-players)
-        (swap! games update-in [game-id] deal-cards))
-      (@games game-id))))
+        (map* record-receive 
+                  (filter* (comp not nil?)
+                      (map* (partial process-message pid)
+                          (map* #(assoc % :src pid)
+                              (filter* map? (map* read-string ch))))))
+        game-ch)
+
+      (siphon
+        (map* #(record-send % pid) 
+        (map* 
+          (comp str (partial hide-info pid))
+          (filter* (partial should-know? pid) game-ch)))
+        ch)
+      (add-player-to-game pid game-id)
+      (enqueue game-ch (str (make-event :join pid)))
+      (when (game-is-full? game-id)
+        (swap! games update-in [game-id] deal-cards)
+        (enqueue game-ch (make-event :new-hand (@games game-id)))))))
+      
 
 (defn wait-for-join [ch pid]
   (receive ch
            (fn [message]
-             (println "received:" message)
              (let [msg (read-string message)]
                (if (and (map? msg)
-                        (= :join (:type msg))
+                        (= :join (:event msg))
                         (:data msg))
                  (let [response (join-game ch pid (-> msg :data keyword))]
-                   (println "response:" response)
-                   (if (not= :error (:type response))
-                     (enqueue ch (str response)) 
+                   (if (= :error (:event response))
                      (wait-for-join ch pid)))
                  (wait-for-join ch pid))))))
 
 (defn game-handler [channel request]
   (let [pid (gensym "player")]
-    (add-player pid)
+    (add-player-to-store pid channel)
     (wait-for-join channel pid)))
 
 (defn dashboard []
@@ -75,7 +79,9 @@
 
 (defn page []
   (html5
-   [:head]
+   [:head
+    [:title "Setback"]
+    [:meta {:charset "UTF-8"}]]
    [:body
     [:input#check_state {:type "button" :value "Check game state"}]
     [:br]
@@ -85,11 +91,12 @@
     [:input#name {:type "text" :value "Anonymous"}]
     [:br] 
     [:div#message_box]
-    [:div#players
-     (for [i (range 3)]
-       [:div.player {:width 200 :height 200}])]
-    (include-js "/js/jquery.js")    
-    (include-js "/js/app.js")]))
+    [:canvas#canvas {:height 200 :width 200}]
+    [:div#your-hand {:height 200 :width 300}]
+    [:input#leave {:type "button" :value "Leave Game"}]
+    (include-js "/js/jquery.js")
+    (include-js "/js/jquery-ui.js")
+    (include-js "/js/client.js")]))
 
 
 (defn sync-app [request]

@@ -1,15 +1,28 @@
 (ns setback.engine
-  (:use setback.crossover.cards))
+  (:use setback.shared.cards)
+  (:import [setback.shared.cards Card]))
 
 (def games (atom {}))
-(def players (atom {}))
+(def player-info (atom {}))
 
+(def num-cards 6)
+(def num-players 3)
 
-(defn point-val [card-num]
-   (cond 
-     (= (card-num 10)) 10 
-     (> card-num 10) (- card-num 10)
-     :else 0))
+; hierarchy of a game
+; game -> hand -> play -> turn
+
+; two stages of a game
+; {:betting, :playing} 
+
+(defn new-game []
+  {:cards-on-table []
+   :players []
+   :dealer 0
+   :trump-player nil
+   :stage :betting
+   :num-players num-players
+   :trump nil
+   :goal 21})
 
 (defn suit? [card suit]
   (= (:suit card) suit))
@@ -18,22 +31,10 @@
   (for [suit suits n numbers]
     (Card. suit n)))
 
-(defn add-player [pid]
-  (swap! players assoc pid
-         {:name "Anonymous"
-          :pid pid
-          :points 0
-          :bet nil
-          :game-id nil
-          :cards nil}))
+;; I decided to set apart player information
+;; from the player in the context of a single game
+;; Both are identifiable by their pid 
 
-(defn new-game []
-  {:cards-on-table []
-   :players []
-   :dealer 0
-   :num-players num-players
-   :trump nil
-   :goal 21})
 
 (defn find-player-pos [game pid]
   (->> (:players game) 
@@ -48,11 +49,9 @@
     (count (get-in @games [game-id :players]))
     0))
 
-(defn change-name [pid new-name]
-  (if-let [game-id (:game-id (get @players pid))]
-    (if-let [pos (find-player-pos (get @games game-id) pid)]
-      (swap! games assoc-in [game-id :players pos :name] new-name)))
-  (swap! players assoc-in [pid :name] new-name))
+(defn game-is-full? [game-id]
+  (= (num-players? game-id) num-players))
+
 
 (defn hide-cards [game pid]
   (update-in
@@ -137,6 +136,59 @@
             [:players pos :cards] disj card))))))
 
 
+
+
+;; functions specific to updating in-memory databases
+
+(defn add-player-to-store 
+ "Adds player information to in-memory database" 
+  [pid ch]
+  (swap! player-info assoc pid
+         {:name "Anonymous"
+          :pid pid
+          :private-channel ch
+          :game-id nil}))
+
+(defn should-know?
+  "Filter which clients should receive this message"
+  [pid msg]
+  (let [event (:event msg)
+        src (:src msg)]
+    (if-not (and (= event :error) (not= src pid))
+     true))) 
+
+(defn hide-info 
+  "Hides cards of other players"
+  [pid msg]
+  (let [event (:event msg)
+        data (:data msg)]
+    (if (= event :new-hand)
+      (:cards (find-player data pid))
+      msg)))
+
+(defn make-new-game [game-id ch]
+  (swap! games assoc game-id (new-game)))
+
+(defn add-game-info 
+  "Hides personal information about player and adds game vars"
+  [player]
+  (merge
+    (dissoc player :private-channel :game-id)
+    {:points 0 :cards [] :bet nil}))
+
+(defn add-player-to-game [pid game-id]
+  (swap! player-info assoc-in [pid :game-id] game-id) 
+  (let [p (@player-info pid)]
+    (swap! games update-in [game-id :players] conj (add-game-info p))))
+
+(defn change-name [pid new-name]
+  (if-let [game-id (:game-id (get @player-info pid))]
+    (if-let [pos (find-player-pos (get @games game-id) pid)]
+      (swap! games assoc-in [game-id :players pos :name] new-name)))
+  (swap! player-info assoc-in [pid :name] new-name))
+
+
+
 ;;  Each single player entity needs to keep track of tha single hand and moves by other players, including:
 ;;  - Whether or not they have any more trump cards
 ;;  - Points accumulated
@@ -150,4 +202,3 @@
 ;;             {:trump false
 ;;              :total-score 15
 ;;              :cards-thrown [(Card. :spades 8) (Card. :hearts seven)  
-
