@@ -8129,17 +8129,18 @@ setback.shared.events.react_to = function(a, b) {
   return cljs.core.swap_BANG_.call(null, setback.shared.events.reactions, cljs.core.update_in, cljs.core.PersistentVector.fromArray([a]), cljs.core.conj, b)
 };
 setback.shared.events.trigger = function(a, b) {
-  return function d(a) {
-    return new cljs.core.LazySeq(null, !1, function() {
-      for(;;) {
-        if(cljs.core.truth_(cljs.core.seq.call(null, a))) {
-          var f = cljs.core.first.call(null, a);
-          return cljs.core.cons.call(null, f.call(null, b), d.call(null, cljs.core.rest.call(null, a)))
-        }
+  var c = cljs.core.deref.call(null, setback.shared.events.reactions).call(null, a), d = cljs.core.seq.call(null, c);
+  if(cljs.core.truth_(d)) {
+    for(c = cljs.core.first.call(null, d);;) {
+      if(c.call(null, b), c = cljs.core.next.call(null, d), cljs.core.truth_(c)) {
+        d = c, c = cljs.core.first.call(null, d)
+      }else {
         return null
       }
-    })
-  }.call(null, cljs.core.deref.call(null, setback.shared.events.reactions).call(null, a))
+    }
+  }else {
+    return null
+  }
 };
 goog.disposable = {};
 goog.disposable.IDisposable = function() {
@@ -12203,12 +12204,31 @@ setback.shared.cards.numbers = cljs.core.range.call(null, 2, 15);
 setback.shared.cards.point_val = function(a) {
   return cljs.core.truth_(cljs.core._EQ_.call(null, a.call(null, 10))) ? 10 : cljs.core.truth_(10 < a) ? a - 10 : cljs.core.truth_("\ufdd0'else") ? 0 : null
 };
+setback.shared.cards.vector_sort = function vector_sort(b, c) {
+  if(cljs.core.truth_(function() {
+    var d = cljs.core.empty_QMARK_.call(null, b);
+    return cljs.core.truth_(d) ? cljs.core.empty_QMARK_.call(null, c) : d
+  }())) {
+    return 0
+  }
+  if(cljs.core.truth_(cljs.core.empty_QMARK_.call(null, b))) {
+    return-1
+  }
+  if(cljs.core.truth_(cljs.core.empty_QMARK_.call(null, c))) {
+    return 1
+  }
+  if(cljs.core.truth_("\ufdd0'default")) {
+    var d = cljs.core.apply.call(null, cljs.core.compare, cljs.core.map.call(null, cljs.core.first, cljs.core.PersistentVector.fromArray([b, c])));
+    return cljs.core.truth_(0 === d) ? vector_sort.call(null, cljs.core.rest.call(null, b), cljs.core.rest.call(null, c)) : d
+  }
+  return null
+};
 setback.shared.cards.sort_cards = function(a) {
   return cljs.core.sort_by.call(null, function(a) {
     return cljs.core.vector.call(null, cljs.core.into.call(null, cljs.core.ObjMap.fromObject([], {}), cljs.core.map_indexed.call(null, function(a, b) {
       return cljs.core.vector.call(null, b, a)
     }, setback.shared.cards.suits)).call(null, "\ufdd0'suit".call(null, a)), -"\ufdd0'number".call(null, a))
-  }, a)
+  }, setback.shared.cards.vector_sort, a)
 };
 setback.animations = {};
 setback.animations.canvas = jayq.core.$.call(null, "\ufdd0'#canvas").get(0);
@@ -12254,11 +12274,13 @@ setback.animations.attr = function(a, b) {
   return a.getAttribute(b)
 };
 setback.animations.draw_hand = function(a) {
-  setback.animations.console.log("Drawing hand...");
-  var b = cljs.core.seq.call(null, a);
+  console.log("Drawing hand...");
+  console.log("sorted cards:");
+  console.log(cljs.core.pr_str.call(null, setback.shared.cards.sort_cards.call(null, a)));
+  var b = cljs.core.seq.call(null, setback.shared.cards.sort_cards.call(null, a));
   if(cljs.core.truth_(b)) {
     for(a = cljs.core.first.call(null, b);;) {
-      if(jayq.core.append.call(null, jayq.core.$.call(null, "\ufdd0'#your-hand"), setback.animations.images.call(null, a)), a = cljs.core.next.call(null, b), cljs.core.truth_(a)) {
+      if(jayq.core.append.call(null, jayq.core.$.call(null, "\ufdd0'#your_hand"), setback.animations.images.call(null, a)), a = cljs.core.next.call(null, b), cljs.core.truth_(a)) {
         b = a, a = cljs.core.first.call(null, b)
       }else {
         return null
@@ -14721,11 +14743,10 @@ jayq.core.bind.call(null, jayq.core.$.call(null, "\ufdd0'#leave"), "\ufdd0'click
   return setback.core.socket.send(cljs.core.pr_str.call(null, setback.shared.events.make_event.call(null, "\ufdd0'leave", null)))
 });
 setback.core.read_msg = function(a) {
-  alert.call(null, a.data);
+  console.log(a.data);
   return cljs.reader.read_string.call(null, a.data)
 };
 setback.core.update_table = function(a) {
-  alert.call(null, cljs.core.pr_str.call(null, a));
   jayq.core.inner.call(null, setback.core.msgbox, cljs.core.pr_str.call(null, a));
   var b = "\ufdd0'event".call(null, a), a = "\ufdd0'data".call(null, a);
   return setback.shared.events.trigger.call(null, b, a)
@@ -14741,12 +14762,14 @@ setback.shared.events.react_to.call(null, "\ufdd0'bet", function(a) {
   return null
 });
 setback.shared.events.react_to.call(null, "\ufdd0'new-hand", function(a) {
-  a = "\ufdd0'cards".call(null, a);
-  return cljs.core.truth_(a) ? setback.animations.draw_hand.call(null, a) : null
+  console.log(cljs.core.pr_str.call(null, a));
+  a = cljs.core.map.call(null, function(a) {
+    return new setback.shared.cards.Card("\ufdd0'suit".call(null, a), "\ufdd0'number".call(null, a))
+  }, a);
+  return setback.animations.draw_hand.call(null, a)
 });
-clojure.browser.repl.connect.call(null, "http://localhost:9000/repl");
 setback.core.socket.onmessage = function(a) {
-  return setback.core.read_msg.call(null, a)
+  return setback.core.update_table.call(null, setback.core.read_msg.call(null, a))
 };
 setback.core.socket.onclose = function() {
   return null

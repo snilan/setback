@@ -1,8 +1,8 @@
 (ns setback.animations
   (:refer-clojure :exclude [val]) 
   (:use
-    [setback.shared.cards :only (Card numbers suits)]
-    [jayq.core :only ($ bind val append)])
+    [setback.shared.cards :only (Card numbers suits sort-cards)]
+    [jayq.core :only ($ bind inner val append)])
   (:require
     [monet.canvas :as monet]))
 
@@ -29,9 +29,11 @@
   (.getAttribute e a))
 
 (defn draw-hand [cards]
-  (.log console "Drawing hand...")
-  (doseq [card cards]
-    (append ($ :#your-hand) (images card))))
+  (.log js/console "Drawing hand...")
+  (.log js/console "sorted cards:")
+  (.log js/console (pr-str (sort-cards cards)))
+  (doseq [card (sort-cards cards)]
+    (append ($ :#your_hand) (images card))))
   
 (defn draw-other-players [players]
   nil)

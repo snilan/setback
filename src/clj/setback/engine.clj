@@ -1,5 +1,6 @@
 (ns setback.engine
-  (:use setback.shared.cards)
+  (:use setback.shared.cards
+        setback.shared.events)
   (:import [setback.shared.cards Card]))
 
 (def games (atom {}))
@@ -107,14 +108,24 @@
 (defn game-over? [game]
   (some #(>= (:points %) (:goal game)) (:players game)))
 
-(defn next-to-go? [game player]
+(defn next-to-play? [game player]
   (let [offset (count (:cards-on-table game))]
    (= player
      (nth (:players game) (mod (+ (:dealer game) offset) (:num-players game)))))) 
 
+(defn next-to-bet? [game player]
+  (let [players (:players game)
+        dealer (:dealer game)
+        num-players (:num-players game)
+        clist (take num-players (drop (inc dealer) (cycle players)))]
+    (= 
+      (first (comp not nil?) clist) 
+      player)))
+
 (defn valid-move? [game player card] 
   (and
-    (next-to-go? game player) 
+    (= (:stage game) :playing)
+    (next-to-play? game player) 
     (has-card? player card)
     (if (dealer? player)
       true
@@ -124,6 +135,22 @@
           (suit? card trump)
           (suit? card dealt-suit)
           (not-any? #(= (:suit %) dealt-suit) (:cards player)))))))
+
+(def min-bet 2)
+(def max-bet 4)
+
+(defn valid-bet? [game player bet]
+ (and
+  (= (:stage game) :betting)
+  (next-to-bet? player)
+  (let [maxb (max (keep :bet (:players game)))]
+    (if (dealer? player)
+      (if (zero? maxb)
+        (<= min-bet bet max-bet)
+        (or (zero? bet) (>= bet maxb)))
+      (or 
+        (zero? bet)
+        (and (> bet maxb) (<= bet max-bet)))))))
 
 
 (defn make-move [game player card]
@@ -136,10 +163,14 @@
             [:players pos :cards] disj card))))))
 
 
+(defn make-bet [game player bet]
+  (if (valid-bet? game player bet) 
+    (let [pos (find-player-pos game player)]
+      (assoc-in game [:players pos :bet] bet))))
+
 
 
 ;; functions specific to updating in-memory databases
-
 (defn add-player-to-store 
  "Adds player information to in-memory database" 
   [pid ch]
@@ -163,7 +194,9 @@
   (let [event (:event msg)
         data (:data msg)]
     (if (= event :new-hand)
-      (:cards (find-player data pid))
+      (let [cards 
+              (set (map #(into {} %) (:cards (find-player data pid))))]
+        (make-event event cards))
       msg)))
 
 (defn make-new-game [game-id ch]
@@ -174,7 +207,7 @@
   [player]
   (merge
     (dissoc player :private-channel :game-id)
-    {:points 0 :cards [] :bet nil}))
+    {:points 0 :cards [] :bet nil :cards-taken []}))
 
 (defn add-player-to-game [pid game-id]
   (swap! player-info assoc-in [pid :game-id] game-id) 

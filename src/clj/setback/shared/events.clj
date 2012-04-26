@@ -24,7 +24,7 @@
 
 (defn trigger [k data]
   (let [funs (@reactions k)]
-   (for [f funs]
+   (doseq [f funs]
     (f data)))) 
 
 

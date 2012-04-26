@@ -18,7 +18,7 @@
         :make-move (make-move game pid (:data msg))
         :name-change (change-name pid (:data msg))
         :game-state (do (println "game: " game) game)
-        :bet nil
+        :bet (make-bet game pid (:data msg))
         (make-event :error :unknown-event)))))
 
 (defn record-receive [msg]
@@ -92,7 +92,7 @@
     [:br] 
     [:div#message_box]
     [:canvas#canvas {:height 200 :width 200}]
-    [:div#your-hand {:height 200 :width 300}]
+    [:div#your_hand {:height 200 :width 300}]
     [:input#leave {:type "button" :value "Leave Game"}]
     (include-js "/js/jquery.js")
     (include-js "/js/jquery-ui.js")

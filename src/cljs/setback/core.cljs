@@ -3,11 +3,10 @@
   (:use 
     [cljs.reader :only [read-string]]
     [jayq.core :only [$ bind inner val]]
-    [setback.shared.cards :only [Card]]
-    [setback.shared.events :only [react-to trigger make-event]])
+    [setback.shared.cards :only [Card]])
   (:require 
-    [goog.events :as events]
     [setback.animations :as anim]
+    [setback.shared.events :as events] 
     [clojure.browser.repl :as repl]))
 
 
@@ -22,54 +21,55 @@
 
 (bind ($ :#joinbutton) :click
       (fn [e]
-        (let [msg (pr-str (make-event :join (val game)))]
+        (let [msg (pr-str (events/make-event :join (val game)))]
           (.send socket msg))))
 
 (bind namebox :change
       (fn [e]
-        (let [msg (pr-str (make-event :name-change (val namebox)))]
+        (let [msg (pr-str (events/make-event :name-change (val namebox)))]
           (js/alert msg)
           (.send socket msg)))) 
 
 (bind ($ :#check_state) :click
       (fn [e]
-        (.send socket (pr-str (make-event :game-state nil)))))
+        (.send socket (pr-str (events/make-event :game-state nil)))))
 
 (bind ($ :#leave) :click
       (fn [e]
-        (.send socket (pr-str (make-event :leave nil)))))
+        (.send socket (pr-str (events/make-event :leave nil)))))
 
 (defn read-msg [msg]
-  (js/alert (.-data msg))
+  (.log js/console (.-data msg))
   (read-string (.-data msg)))
 
 (defn update-table [msg]
-  (js/alert (pr-str msg))
   (inner msgbox (pr-str msg))
   (let [event (:event msg)
         data (:data msg)]
-    (trigger event data)))
+    (events/trigger event data)))
 
 
-(react-to 
+(events/react-to 
   :error
   (fn [data]
     (inner msgbox data)))
 
-(react-to 
+(events/react-to 
   :bet
   (fn [data]
     (if-let [{:keys [pid amount]} data]
       (inner msgbox (str pid " bet " amount)))))
 
-(react-to
+(events/react-to
   :new-hand
   (fn [data]
-    (if-let [cards (:cards data)]
-      (anim/draw-hand cards))))
+    (.log js/console (pr-str data))
+    (let [cards 
+          (map #(Card. (:suit %) (:number %)) data)]
+    (anim/draw-hand cards))))
 
 ;;(repl/connect "http://localhost:9000/repl")
 
-(set! (.-onmessage socket) #(-> % read-msg))
+(set! (.-onmessage socket) #(-> % read-msg update-table))
 (set! (.-onclose socket) (fn [] nil))
 
