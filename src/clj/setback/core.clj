@@ -84,12 +84,9 @@
 
 (defn game-handler [channel request]
   (let [pid (gensym "player")]
-    (add-player-to-store pid channel)
+    (add-player-to-store pid)
     (wait-for-join channel pid)))
 
-(defn dashboard []
-  [:div#dashboard
-   [:select#card-choice]])
 
 (defn page []
   (html5

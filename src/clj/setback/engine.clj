@@ -25,6 +25,19 @@
    :trump nil
    :goal 21})
 
+(defn new-player-info [pid]
+  {:name "Anonymous"
+   :pid pid
+   :game-id nil})
+
+(defn new-player-game [pid]
+  {:pid pid
+   :points 0 
+   :cards [] 
+   :bet nil 
+   :cards-taken []})
+
+
 (defn suit? [card suit]
   (= (:suit card) suit))
 
@@ -175,12 +188,9 @@
 ;; functions specific to updating in-memory databases
 (defn add-player-to-store 
  "Adds player information to in-memory database" 
-  [pid ch]
+  [pid]
   (swap! player-info assoc pid
-         {:name "Anonymous"
-          :pid pid
-          :private-channel ch
-          :game-id nil}))
+         (new-player-info pid)))
 
 (defn should-know?
   "Filter which clients should receive this message"
@@ -204,17 +214,11 @@
 (defn make-new-game [game-id ch]
   (swap! games assoc game-id (new-game)))
 
-(defn add-game-info 
-  "Hides personal information about player and adds game vars"
-  [player]
-  (merge
-    (dissoc player :private-channel :game-id)
-    {:points 0 :cards [] :bet nil :cards-taken []}))
 
 (defn add-player-to-game [pid game-id]
   (swap! player-info assoc-in [pid :game-id] game-id) 
   (let [p (@player-info pid)]
-    (swap! games update-in [game-id :players] conj (add-game-info p))))
+    (swap! games update-in [game-id :players] conj (new-player-game pid))))
 
 (defn change-name [pid new-name]
 ;  (if-let [game-id (:game-id (get @player-info pid))]
