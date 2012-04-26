@@ -12236,6 +12236,7 @@ setback.animations.ctx = monet.canvas.get_context.call(null, setback.animations.
 setback.animations.get_image = function(a, b) {
   var c = new Image, d = cljs.core.str.call(null, "images/", cljs.core.name.call(null, a), b, ".png");
   c.src = d;
+  jayq.core.add_class.call(null, jayq.core.$.call(null, c), "\ufdd0'ui-state-default");
   return c
 };
 setback.animations.images = cljs.core.into.call(null, cljs.core.ObjMap.fromObject([], {}), function() {
@@ -12280,15 +12281,14 @@ setback.animations.draw_hand = function(a) {
   var b = cljs.core.seq.call(null, setback.shared.cards.sort_cards.call(null, a));
   if(cljs.core.truth_(b)) {
     for(a = cljs.core.first.call(null, b);;) {
-      if(jayq.core.append.call(null, jayq.core.$.call(null, "\ufdd0'#your_hand"), setback.animations.images.call(null, a)), a = cljs.core.next.call(null, b), cljs.core.truth_(a)) {
+      if(a = setback.animations.images.call(null, a), jayq.core.add_class.call(null, jayq.core.$.call(null, a), "\ufdd0'your-card"), jayq.core.append.call(null, jayq.core.$.call(null, "\ufdd0'#your_hand"), a), a = cljs.core.next.call(null, b), cljs.core.truth_(a)) {
         b = a, a = cljs.core.first.call(null, b)
       }else {
-        return null
+        break
       }
     }
-  }else {
-    return null
   }
+  return jayq.core.$.call(null, "\ufdd0'#your_hand").sortable()
 };
 setback.animations.draw_other_players = function() {
   return null
@@ -14733,7 +14733,6 @@ jayq.core.bind.call(null, jayq.core.$.call(null, "\ufdd0'#joinbutton"), "\ufdd0'
 });
 jayq.core.bind.call(null, setback.core.namebox, "\ufdd0'change", function() {
   var a = cljs.core.pr_str.call(null, setback.shared.events.make_event.call(null, "\ufdd0'name-change", jayq.core.val.call(null, setback.core.namebox)));
-  alert.call(null, a);
   return setback.core.socket.send(a)
 });
 jayq.core.bind.call(null, jayq.core.$.call(null, "\ufdd0'#check_state"), "\ufdd0'click", function() {
@@ -14741,6 +14740,9 @@ jayq.core.bind.call(null, jayq.core.$.call(null, "\ufdd0'#check_state"), "\ufdd0
 });
 jayq.core.bind.call(null, jayq.core.$.call(null, "\ufdd0'#leave"), "\ufdd0'click", function() {
   return setback.core.socket.send(cljs.core.pr_str.call(null, setback.shared.events.make_event.call(null, "\ufdd0'leave", null)))
+});
+jayq.core.bind.call(null, jayq.core.$.call(null, "\ufdd0'#chat_input"), "\ufdd0'change", function() {
+  return setback.core.socket.send(cljs.core.pr_str.call(null, setback.shared.events.make_event.call(null, "\ufdd0'chat", jayq.core.val.call(null, jayq.core.$.call(null, "\ufdd0'#chat_input")))))
 });
 setback.core.read_msg = function(a) {
   console.log(a.data);
@@ -14768,9 +14770,17 @@ setback.shared.events.react_to.call(null, "\ufdd0'new-hand", function(a) {
   }, a);
   return setback.animations.draw_hand.call(null, a)
 });
+setback.shared.events.react_to.call(null, "\ufdd0'chat", function(a) {
+  return jayq.core.append.call(null, jayq.core.$.call(null, "\ufdd0'#chat_box"), a)
+});
 setback.core.socket.onmessage = function(a) {
   return setback.core.update_table.call(null, setback.core.read_msg.call(null, a))
 };
 setback.core.socket.onclose = function() {
   return null
 };
+jayq.core.document_ready.call(null, function() {
+  return setTimeout.call(null, function() {
+    return setback.core.socket.send(cljs.core.pr_str.call(null, setback.shared.events.make_event.call(null, "\ufdd0'join", "game")))
+  }, 1E3)
+});

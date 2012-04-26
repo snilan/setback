@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [val])
   (:use 
     [cljs.reader :only [read-string]]
-    [jayq.core :only [$ bind inner val]]
+    [jayq.core :only [$ bind inner val append document-ready]]
     [setback.shared.cards :only [Card]])
   (:require 
     [setback.animations :as anim]
@@ -27,8 +27,7 @@
 (bind namebox :change
       (fn [e]
         (let [msg (pr-str (events/make-event :name-change (val namebox)))]
-          (js/alert msg)
-          (.send socket msg)))) 
+          (.send socket msg))))
 
 (bind ($ :#check_state) :click
       (fn [e]
@@ -37,6 +36,10 @@
 (bind ($ :#leave) :click
       (fn [e]
         (.send socket (pr-str (events/make-event :leave nil)))))
+
+(bind ($ :#chat_input) :change
+      (fn [e]
+        (.send socket (pr-str (events/make-event :chat (val ($ :#chat_input)))))))
 
 (defn read-msg [msg]
   (.log js/console (.-data msg))
@@ -47,7 +50,6 @@
   (let [event (:event msg)
         data (:data msg)]
     (events/trigger event data)))
-
 
 (events/react-to 
   :error
@@ -68,8 +70,23 @@
           (map #(Card. (:suit %) (:number %)) data)]
     (anim/draw-hand cards))))
 
+(events/react-to
+  :chat
+  (fn [data]
+    (append ($ :#chat_box)
+            data)))
+
 ;;(repl/connect "http://localhost:9000/repl")
 
 (set! (.-onmessage socket) #(-> % read-msg update-table))
 (set! (.-onclose socket) (fn [] nil))
+
+(document-ready
+  (fn []
+    (js/setTimeout 
+      (fn []
+        (.send socket 
+               (pr-str (events/make-event :join "game"))))
+      1000)))
+
 

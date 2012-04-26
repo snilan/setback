@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [val]) 
   (:use
     [setback.shared.cards :only (Card numbers suits sort-cards)]
-    [jayq.core :only ($ bind inner val append)])
+    [jayq.core :only ($ bind inner val append add-class)])
   (:require
     [monet.canvas :as monet]))
 
@@ -16,6 +16,7 @@
   (let [img (js/Image.)
         path (str "images/" (name suit) number ".png")]
     (set! (.-src img) path)
+    (add-class ($ img) :ui-state-default)
     img)) 
 
 (def images 
@@ -33,7 +34,10 @@
   (.log js/console "sorted cards:")
   (.log js/console (pr-str (sort-cards cards)))
   (doseq [card (sort-cards cards)]
-    (append ($ :#your_hand) (images card))))
+    (let [img (images card)]
+      (add-class ($ img) :your-card)
+      (append ($ :#your_hand) img))) 
+  (.sortable ($ :#your_hand)))
   
 (defn draw-other-players [players]
   nil)

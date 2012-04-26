@@ -15,10 +15,23 @@
         game (get @games (:game-id player))]
     (when (map? msg)
       (case event
-        :make-move (make-move game pid (:data msg))
-        :name-change (change-name pid (:data msg))
-        :game-state (do (println "game: " game) game)
-        :bet (make-bet game pid (:data msg))
+        :make-move 
+          (make-move game pid (:data msg))
+
+        :name-change 
+          (do
+            (change-name pid (:data msg))
+            (make-event event (@player-info pid)))
+
+        :game-state 
+          (do (println "game: " game) game)
+
+        :bet 
+          (make-bet game pid (:data msg))
+
+        :chat 
+          (make-event event (str (get-name pid) ": " (:data msg)))
+
         (make-event :error :unknown-event)))))
 
 (defn record-receive [msg]
@@ -36,11 +49,11 @@
     (enqueue ch (str (make-event :error "Room is already full")))
     (let [game-ch (named-channel game-id (partial make-new-game game-id))] ;; calls make-new-game if channel doesn't exist
       (siphon
-        (map* record-receive 
-                  (filter* (comp not nil?)
-                      (map* (partial process-message pid)
-                          (map* #(assoc % :src pid)
-                              (filter* map? (map* read-string ch))))))
+        (filter* (comp not nil?)
+                 (map* (partial process-message pid)
+                       (map* record-receive
+                             (map* #(assoc % :src pid)
+                                   (filter* map? (map* read-string ch))))))
         game-ch)
 
       (siphon
@@ -60,6 +73,7 @@
   (receive ch
            (fn [message]
              (let [msg (read-string message)]
+               (println "found:" msg)
                (if (and (map? msg)
                         (= :join (:event msg))
                         (:data msg))
@@ -93,6 +107,8 @@
     [:div#message_box]
     [:canvas#canvas {:height 200 :width 200}]
     [:div#your_hand {:height 200 :width 300}]
+    [:input#chat_input {:type "text"}]
+    [:div#chat_box {:height 200 :width 400}]
     [:input#leave {:type "button" :value "Leave Game"}]
     (include-js "/js/jquery.js")
     (include-js "/js/jquery-ui.js")

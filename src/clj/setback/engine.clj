@@ -36,6 +36,8 @@
 ;; from the player in the context of a single game
 ;; Both are identifiable by their pid 
 
+(defn get-name [pid]
+  (get-in @player-info [pid :name]))
 
 (defn find-player-pos [game pid]
   (->> (:players game) 
@@ -215,9 +217,9 @@
     (swap! games update-in [game-id :players] conj (add-game-info p))))
 
 (defn change-name [pid new-name]
-  (if-let [game-id (:game-id (get @player-info pid))]
-    (if-let [pos (find-player-pos (get @games game-id) pid)]
-      (swap! games assoc-in [game-id :players pos :name] new-name)))
+;  (if-let [game-id (:game-id (get @player-info pid))]
+;    (if-let [pos (find-player-pos (get @games game-id) pid)]
+;      (swap! games assoc-in [game-id :players pos :name] new-name)))
   (swap! player-info assoc-in [pid :name] new-name))
 
 
